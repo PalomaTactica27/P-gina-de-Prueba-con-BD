@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import type { Product } from "@/types/product";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const PRICE_STEP = 0.01;
 
@@ -39,11 +39,20 @@ export function ProductManager() {
   const [priceStr, setPriceStr] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true);
       setErrorMsg("");
+
+      if (!supabase) {
+        setErrorMsg(
+          "Falta configurar Supabase. Define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+        );
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("products")
@@ -67,7 +76,7 @@ export function ProductManager() {
     };
 
     void loadProducts();
-  }, []);
+  }, [supabase]);
 
   const addProduct = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -77,6 +86,13 @@ export function ProductManager() {
       const price = parseMoneyString(priceStr.trim());
 
       if (!trimmedName || Number.isNaN(price) || price < 0) {
+        return;
+      }
+
+      if (!supabase) {
+        setErrorMsg(
+          "Falta configurar Supabase. Define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+        );
         return;
       }
 
@@ -108,7 +124,7 @@ export function ProductManager() {
       setDescription("");
       setPriceStr("");
     },
-    [name, description, priceStr]
+    [name, description, priceStr, supabase]
   );
 
   const bumpPrice = useCallback((delta: number) => {
